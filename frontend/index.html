@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataXplore | Liquid Morphism</title>
+    <!-- SF Pro pseudo-font for iOS look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Liquid Background Shapes -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <div class="app-container">
+        <!-- Floating Glass Header -->
+        <header class="glass-nav">
+            <h1 class="logo">DataXplore</h1>
+            <nav class="desktop-nav">
+                <div class="nav-item active" onclick="switchTab('dashboard', this)">
+                    <ion-icon name="home"></ion-icon> Dashboard
+                </div>
+                <div class="nav-item" onclick="switchTab('charts', this)">
+                    <ion-icon name="bar-chart"></ion-icon> Analytics
+                </div>
+                <div class="nav-item" onclick="switchTab('predict', this)">
+                    <ion-icon name="hardware-chip"></ion-icon> Prediction AI
+                </div>
+            </nav>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="main-content">
+            <!-- View: Dashboard Screen -->
+            <section id="view-dashboard" class="tab-view active">
+                <div class="welcome-card glass-card">
+                    <h2>Explore the World's Megacities</h2>
+                    <p>An interactive, liquid-glass analytics engine exploring the Top 100 Largest Cities.</p>
+                </div>
+
+                <h3 class="section-title">Overview Statistics</h3>
+                <div id="stats-summary" class="stats-grid">
+                    <!-- Injected via JS -->
+                </div>
+
+                <h3 class="section-title">Top 5 by Population</h3>
+                <div class="glass-card chart-card">
+                    <canvas id="quickBarChart"></canvas>
+                </div>
+            </section>
+
+            <!-- View: Charts Screen -->
+            <section id="view-charts" class="tab-view">
+                <div class="chart-grid">
+                    <div class="glass-card chart-card">
+                        <h4>Top 10 Cities By Population</h4>
+                        <canvas id="barChart"></canvas>
+                    </div>
+
+                    <div class="glass-card chart-card">
+                        <h4>Count By Country</h4>
+                        <canvas id="pieChart"></canvas>
+                    </div>
+
+                    <div class="glass-card chart-card full-width">
+                        <h4>Population vs Area</h4>
+                        <canvas id="scatterChart"></canvas>
+                    </div>
+
+                    <div class="glass-card chart-card">
+                        <h4>Size Category Distribution</h4>
+                        <canvas id="polarChart"></canvas>
+                    </div>
+
+                    <div class="glass-card chart-card">
+                        <h4>Top 20 Pop vs Density</h4>
+                        <canvas id="lineChart"></canvas>
+                    </div>
+                </div>
+                <div class="bottom-padding"></div>
+            </section>
+
+            <!-- View: Prediction Screen -->
+            <section id="view-predict" class="tab-view">
+                <div class="glass-card prediction-card">
+                    <div class="icon-wrap">
+                        <ion-icon name="color-wand"></ion-icon>
+                    </div>
+                    <h3>AI Predictive Modeling</h3>
+                    <p class="text-secondary">Estimate Population or Size Class based on Land Area utilizing our trained
+                        Random Forest models.</p>
+
+                    <div class="input-container">
+                        <label for="areaInput">City Land Area (sq km)</label>
+                        <input type="number" id="areaInput" placeholder="Enter an area, e.g., 4000">
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="liquid-btn primary" onclick="predictPopulation()">
+                            <span>Predict Population</span>
+                        </button>
+                        <button class="liquid-btn secondary" onclick="predictSize()">
+                            <span>Classify Size Category</span>
+                        </button>
+                    </div>
+
+                    <div id="predictionResult" class="result-card hidden">
+                        <!-- Result HTML goes here -->
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Mobile Bottom Nav -->
+        <nav class="mobile-nav glass-nav">
+            <div class="nav-item active" onclick="switchTab('dashboard', this)">
+                <ion-icon name="home"></ion-icon>
+                <span>Home</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('charts', this)">
+                <ion-icon name="bar-chart"></ion-icon>
+                <span>Charts</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('predict', this)">
+                <ion-icon name="hardware-chip"></ion-icon>
+                <span>Predict</span>
+            </div>
+        </nav>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
