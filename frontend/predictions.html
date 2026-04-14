@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Predictions | DataXplore</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-wrapper">
+        <header>
+            <a href="/" class="brand">Data<span>Xplore</span></a>
+            <nav>
+                <a href="/">Overview</a>
+                <a href="/analytics.html">Analytics</a>
+                <a href="/predictions.html" class="active">Predictions</a>
+            </nav>
+        </header>
+
+        <main style="max-width: 640px; margin: 0 auto;">
+            <div class="card" style="margin-bottom: 1.75rem;">
+                <span class="section-label">AI Predictive Suite</span>
+                <h2 style="margin-bottom: 0.5rem;">Population Estimator</h2>
+                <p class="card-subtitle" style="margin-bottom: 2rem;">
+                    Gradient Boosting model trained on 100 global cities. Given a land area,
+                    it estimates population (log₁₊ₓ-transformed target) and classifies the city tier
+                    using quantile-based thresholds.
+                </p>
+
+                <div class="form-group">
+                    <label for="areaInput">City Land Area (sq km)</label>
+                    <input type="number" id="areaInput" placeholder="e.g. 2150" min="1" step="any">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <button class="btn btn-primary" onclick="predictPopulation()">Estimate Population</button>
+                    <button class="btn btn-outline" onclick="predictSize()">Classify Size</button>
+                </div>
+
+                <div id="predictionResult" class="result-display hidden"></div>
+            </div>
+
+            <div class="card">
+                <h4 style="margin-bottom: 1rem;">Model Architecture</h4>
+                <div class="notebook-cell">
+                    <div class="cell-toolbar">
+                        <span class="cell-icon">▶</span>
+                        <span class="cell-lang">Pipeline</span>
+                    </div>
+                    <pre><code># Feature Engineering (4 features from 1 input)
+features = [area, log1p(area), sqrt(area), 1/(area+1)]
+
+# Regression Pipeline
+Pipeline([
+    ("feat",   FunctionTransformer(expand_features)),
+    ("scale",  StandardScaler()),
+    ("model",  GradientBoostingRegressor(
+        n_estimators=...,     # tuned via RandomizedSearchCV
+        max_depth=...,        # tuned
+        learning_rate=...,    # tuned
+        subsample=...,        # tuned
+        min_samples_leaf=..., # tuned
+    ))
+])
+
+# Training: fit on log1p(population)
+# Inference: predict → expm1() → actual population
+
+# Classification uses same features, different head
+# Thresholds: Q75 = Mega, Q25 = Large, rest = Medium</code></pre>
+                </div>
+                <div class="insight-box">
+                    <strong>Why log-transform?</strong> City populations follow a log-normal distribution.
+                    Training in log-space converts the skewed target into an approximately Gaussian shape,
+                    dramatically improving R² from ~0.3 (raw) to ~0.6+ (log-space).
+                </div>
+            </div>
+        </main>
+
+        <footer class="site-footer">
+            <p>DataXplore v2.1 — All predictions run server-side via Scikit-Learn</p>
+        </footer>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

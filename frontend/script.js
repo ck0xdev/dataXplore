@@ -1,358 +1,412 @@
-const API_BASE = "http://localhost:8000/api";
+// ═══════════════════════════════════════════════════════════════
+//  DataXplore — Frontend Controller
+// ═══════════════════════════════════════════════════════════════
+const API = "/api";
 
-// Initial Load
-document.addEventListener("DOMContentLoaded", async () => {
-    try {
-        const response = await fetch(`${API_BASE}/eda_stats`);
-        const data = await response.json();
-
-        // Populate stats
-        renderSummaryStats(data.summary);
-
-        // Render all charts
-        renderQuickBarChart(data.top_10); // on Dashboard
-        renderBarChart(data.top_10); // on Charts View
-        renderPieChart(data.country_distribution);
-        renderScatterChart(data.scatter);
-        renderPolarChart(data.size_distribution);
-        renderLineChart(data.line_data);
-
-    } catch (error) {
-        console.error("Error loading EDA stats:", error);
-    }
-});
-
-// App Tab Navigation Logic (iOS Style)
-function switchTab(tabId, el) {
-    // Hide all tabs
-    document.querySelectorAll('.tab-view').forEach(t => t.classList.remove('active'));
-    // Un-highlight all nav items
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-
-    // Show selected tab
-    document.getElementById('view-' + tabId).classList.add('active');
-    el.classList.add('active');
-
-    // Update Title
-    const titles = {
-        'dashboard': 'Dashboard',
-        'charts': 'Charts & EDA',
-        'predict': 'ML Predict'
-    };
-    document.getElementById('screen-title').textContent = titles[tabId];
-}
-
-// Utility: Format large numbers
-function formatNumber(num) {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return isNaN(num) ? 0 : num;
-}
-
-function renderSummaryStats(summary) {
-    const statsDiv = document.getElementById("stats-summary");
-
-    const count = summary['Population (Est.)']?.count || 0;
-    const avgPop = summary['Population (Est.)']?.mean || 0;
-    const avgArea = summary['Area (sq km)']?.mean || 0;
-    const maxDensity = (summary['Density (pop/sq km)']?.max || 0).toFixed(0);
-
-    statsDiv.innerHTML = `
-        <div class="stat-item">
-            <div class="stat-value">${count}</div>
-            <div class="stat-label">Total Cities</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-value">${formatNumber(avgPop)}</div>
-            <div class="stat-label">Avg Population</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-value">${formatNumber(avgArea)}</div>
-            <div class="stat-label">Avg Area (sq km)</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-value">${maxDensity}</div>
-            <div class="stat-label">Max Density (pop/sq km)</div>
-        </div>
-    `;
-}
-
-// Global Chart settings mimicking Apple design
-Chart.defaults.font.family = "'Inter', sans-serif";
-Chart.defaults.color = '#8e8e93';
-
-const iosColors = [
-    '#007aff', '#ff9500', '#ff2d55', '#4cd964', '#5856d6',
-    '#ffcc00', '#5ac8fa', '#ff3b30'
+const PALETTE = [
+    "#4f46e5", "#0891b2", "#10b981", "#f59e0b", "#f43f5e",
+    "#8b5cf6", "#06b6d4", "#22c55e", "#eab308", "#ec4899",
+    "#6366f1", "#14b8a6", "#84cc16", "#f97316", "#d946ef",
 ];
 
-function renderQuickBarChart(top10Data) {
-    const ctx = document.getElementById('quickBarChart').getContext('2d');
-    const top5 = top10Data.slice(0, 5);
+const PALETTE_ALPHA = PALETTE.map((c) => c + "bb");
 
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: top5.map(d => d.City),
-            datasets: [{
-                label: 'Population (Millions)',
-                data: top5.map(d => d['Population (Est.)']),
-                backgroundColor: '#007aff',
-                borderRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { display: false },
-                tooltip: { callbacks: { label: (ctx) => `Population: ${formatNumber(ctx.raw)}` } }
+// ─── Helpers ──────────────────────────────────────────
+function fmt(n) {
+    if (n == null || isNaN(n)) return "0";
+    if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(1) + "K";
+    return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+}
+
+function axisFmt() {
+    return { callback: (v) => fmt(v) };
+}
+
+const BASE_OPTS = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: { display: false },
+        tooltip: {
+            backgroundColor: "#0f172a",
+            titleFont: { family: "Inter", weight: "600", size: 13 },
+            bodyFont: { family: "Inter", size: 12 },
+            padding: 10,
+            cornerRadius: 8,
+            callbacks: {
+                label: (ctx) => " " + fmt(ctx.parsed.y ?? ctx.parsed.r ?? ctx.raw),
             },
-            scales: {
-                y: {
-                    title: { display: true, text: 'Population (Millions)' },
-                    ticks: { callback: v => formatNumber(v) }
-                }
-            }
-        }
-    });
-}
-
-function renderBarChart(top10Data) {
-    const ctx = document.getElementById('barChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: top10Data.map(d => d.City),
-            datasets: [{
-                label: 'Population (Millions)',
-                data: top10Data.map(d => d['Population (Est.)']),
-                backgroundColor: '#5856d6',
-                borderRadius: 4
-            }]
         },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { display: false },
-                tooltip: { callbacks: { label: (ctx) => `Population: ${formatNumber(ctx.raw)}` } }
-            },
-            indexAxis: 'y', // Horizontal bar for easier reading on mobile
-            scales: {
-                x: {
-                    title: { display: true, text: 'Population (Millions)' },
-                    ticks: { callback: v => formatNumber(v) }
-                }
-            }
-        }
-    });
-}
-
-function renderPieChart(countryData) {
-    const ctx = document.getElementById('pieChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: Object.keys(countryData),
-            datasets: [{
-                data: Object.values(countryData),
-                backgroundColor: iosColors,
-                borderWidth: 2,
-                borderColor: '#ffffff'
-            }]
+    },
+    scales: {
+        x: {
+            grid: { display: false },
+            ticks: { font: { family: "Inter", size: 11, weight: "500" }, color: "#94a3b8" },
         },
-        options: {
-            responsive: true,
-            plugins: {
-                title: { display: true, text: 'Number of Megacities per Country' },
-                legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } },
-                tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw} Cities` } }
-            }
-        }
-    });
-}
-
-function renderScatterChart(scatterData) {
-    const ctx = document.getElementById('scatterChart').getContext('2d');
-
-    const mappedData = scatterData.map(d => ({
-        x: d['Area (sq km)'],
-        y: d['Population (Est.)'],
-        cityName: d.City
-    }));
-
-    new Chart(ctx, {
-        type: 'scatter',
-        data: {
-            datasets: [{
-                label: 'Cities',
-                data: mappedData,
-                backgroundColor: 'rgba(255, 45, 85, 0.7)',
-                pointRadius: 4
-            }]
+        y: {
+            grid: { color: "#f1f5f9" },
+            ticks: { font: { family: "Inter", size: 11, weight: "500" }, color: "#94a3b8" },
         },
-        options: {
-            responsive: true,
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            const pt = context.raw;
-                            return `${pt.cityName} (Area: ${formatNumber(pt.x)} sq km, Pop: ${formatNumber(pt.y)})`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    title: { display: true, text: 'Land Area (sq km)' },
-                    ticks: { callback: v => formatNumber(v) }
-                },
-                y: {
-                    title: { display: true, text: 'Population (Millions)' },
-                    ticks: { callback: v => formatNumber(v) }
-                }
-            }
-        }
-    });
-}
+    },
+};
 
-function renderPolarChart(sizeData) {
-    const ctx = document.getElementById('polarChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'polarArea',
-        data: {
-            labels: Object.keys(sizeData),
-            datasets: [{
-                data: Object.values(sizeData),
-                backgroundColor: [
-                    'rgba(0, 122, 255, 0.6)',
-                    'rgba(76, 217, 100, 0.6)',
-                    'rgba(255, 149, 0, 0.6)'
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                title: { display: true, text: 'Number of Cities in each Size Category' },
-                legend: { position: 'bottom' },
-                tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw} Cities` } }
-            }
-        }
-    });
-}
-
-function renderLineChart(lineData) {
-    const ctx = document.getElementById('lineChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: lineData.map(d => d.City),
-            datasets: [
-                {
-                    label: 'Population (Millions)',
-                    data: lineData.map(d => d['Population (Est.)']),
-                    borderColor: '#ff2d55',
-                    backgroundColor: 'rgba(255, 45, 85, 0.1)',
-                    yAxisID: 'y',
-                    tension: 0.4,
-                    fill: true
-                },
-                {
-                    label: 'Density (Pop per sq km)',
-                    data: lineData.map(d => d['Density (pop/sq km)']),
-                    borderColor: '#4cd964',
-                    borderDash: [5, 5],
-                    yAxisID: 'y1',
-                    tension: 0.1
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            interaction: { mode: 'index', intersect: false },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function (ctx) {
-                            if (ctx.datasetIndex === 0) return `Population: ${formatNumber(ctx.raw)}`;
-                            if (ctx.datasetIndex === 1) return `Density: ${formatNumber(ctx.raw)} / sq km`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: { display: false }, // Hide x labels to save space
-                y: {
-                    type: 'linear', display: true, position: 'left',
-                    title: { display: true, text: 'Population (Millions)' },
-                    ticks: { callback: v => formatNumber(v) }
-                },
-                y1: {
-                    type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false },
-                    title: { display: true, text: 'Density (pop/sq km)' },
-                    ticks: { callback: v => formatNumber(v) }
-                }
-            }
-        }
-    });
-}
-
-// Validation helper
-function validateInput(areaValue, resultBox) {
-    if (!areaValue || isNaN(areaValue) || areaValue <= 0) {
-        resultBox.textContent = "Please enter a valid area number.";
-        resultBox.className = "result-card error";
-        return false;
+// ─── Init ─────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", async () => {
+    let data = null;
+    try {
+        const res = await fetch(`${API}/eda_stats`);
+        if (res.ok) data = await res.json();
+    } catch (e) {
+        console.error("API unreachable:", e);
     }
-    return true;
+
+    if (document.getElementById("quick-stats")) initHome(data);
+    else if (document.getElementById("chart1")) initAnalytics(data);
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  HOME PAGE
+// ═══════════════════════════════════════════════════════════════
+function initHome(data) {
+    if (!data) {
+        document.getElementById("quick-stats").innerHTML =
+            '<div class="card stat-box"><div class="val">—</div><div class="lbl">Awaiting API</div></div>'.repeat(3);
+        return;
+    }
+
+    const s = data.summary["Population (Est.)"] || {};
+    const sa = data.summary["Area (sq km)"] || {};
+
+    document.getElementById("quick-stats").innerHTML = `
+        <div class="card stat-box"><div class="val">${Math.round(s.count || 0)}</div><div class="lbl">Total Cities</div></div>
+        <div class="card stat-box"><div class="val">${fmt(s.mean || 0)}</div><div class="lbl">Avg Population</div></div>
+        <div class="card stat-box"><div class="val">${fmt(sa.mean || 0)}</div><div class="lbl">Avg Area km²</div></div>
+    `;
+
+    // Model metrics
+    const mp = data.model_performance;
+    const reg = mp.regression || {};
+    const clf = mp.classification || {};
+    document.getElementById("m-r2").textContent = (reg.r2_score ?? "—").toString();
+    document.getElementById("m-cv").textContent =
+        reg.cv_r2_mean != null ? `${reg.cv_r2_mean}±${reg.cv_r2_std}` : "—";
+    document.getElementById("m-acc").textContent =
+        clf.accuracy != null ? (clf.accuracy * 100).toFixed(1) + "%" : "—";
+    document.getElementById("m-feat").textContent =
+        reg.features ? reg.features.length.toString() : "—";
+
+    // Home chart — top 5 bar
+    const top5 = data.charts.top_10_pop.slice(0, 5);
+    new Chart(document.getElementById("homeChart"), {
+        type: "bar",
+        data: {
+            labels: top5.map((d) => d.City),
+            datasets: [{
+                data: top5.map((d) => d["Population (Est.)"]),
+                backgroundColor: PALETTE.slice(0, 5),
+                borderRadius: 8,
+                borderSkipped: false,
+            }],
+        },
+        options: {
+            ...BASE_OPTS,
+            scales: {
+                ...BASE_OPTS.scales,
+                y: { ...BASE_OPTS.scales.y, beginAtZero: true, ticks: { ...BASE_OPTS.scales.y.ticks, ...axisFmt() } },
+                x: { ...BASE_OPTS.scales.x, ticks: { ...BASE_OPTS.scales.x.ticks, maxRotation: 30 } },
+            },
+        },
+    });
 }
 
-// Predictions API Calls
+// ═══════════════════════════════════════════════════════════════
+//  ANALYTICS PAGE — 8 CHARTS
+// ═══════════════════════════════════════════════════════════════
+function initAnalytics(data) {
+    if (!data) {
+        document.querySelector(".charts-grid").innerHTML =
+            '<div class="card" style="grid-column:1/-1;text-align:center;padding:4rem;"><h4>API Unavailable</h4><p class="text-muted">Start the backend server to load live data.</p></div>';
+        return;
+    }
+
+    const c = data.charts;
+
+    // ── 1. Top 10 Population Bar ──
+    new Chart(document.getElementById("chart1"), {
+        type: "bar",
+        data: {
+            labels: c.top_10_pop.map((d) => d.City),
+            datasets: [{
+                data: c.top_10_pop.map((d) => d["Population (Est.)"]),
+                backgroundColor: PALETTE[0],
+                borderRadius: 6,
+                borderSkipped: false,
+            }],
+        },
+        options: {
+            ...BASE_OPTS,
+            scales: {
+                ...BASE_OPTS.scales,
+                y: { ...BASE_OPTS.scales.y, beginAtZero: true, ticks: { ...BASE_OPTS.scales.y.ticks, ...axisFmt() } },
+                x: { ...BASE_OPTS.scales.x, ticks: { ...BASE_OPTS.scales.x.ticks, maxRotation: 40, font: { size: 10 } } },
+            },
+        },
+    });
+
+    // ── 2. Country Distribution (Horizontal Bar) ──
+    const cEntries = Object.entries(c.country_dist).sort((a, b) => a[1] - b[1]);
+    new Chart(document.getElementById("chart2"), {
+        type: "bar",
+        data: {
+            labels: cEntries.map((e) => e[0]),
+            datasets: [{
+                data: cEntries.map((e) => e[1]),
+                backgroundColor: PALETTE.slice(0, cEntries.length),
+                borderRadius: 6,
+                borderSkipped: false,
+            }],
+        },
+        options: {
+            ...BASE_OPTS,
+            indexAxis: "y",
+            scales: {
+                x: { ...BASE_OPTS.scales.x, beginAtZero: true, ticks: { ...BASE_OPTS.scales.x.ticks, stepSize: 1 } },
+                y: { ...BASE_OPTS.scales.y, grid: { display: false } },
+            },
+        },
+    });
+
+    // ── 3. Size Category Doughnut ──
+    new Chart(document.getElementById("chart3"), {
+        type: "doughnut",
+        data: {
+            labels: Object.keys(c.size_dist),
+            datasets: [{
+                data: Object.values(c.size_dist),
+                backgroundColor: [PALETTE[0], PALETTE[3], PALETTE[4]],
+                borderWidth: 0,
+                hoverOffset: 8,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: "62%",
+            plugins: {
+                legend: {
+                    position: "bottom",
+                    labels: { padding: 16, usePointStyle: true, pointStyleWidth: 10, font: { family: "Inter", size: 12, weight: "600" }, color: "#475569" },
+                },
+                tooltip: BASE_OPTS.plugins.tooltip,
+            },
+        },
+    });
+
+    // ── 4. Area vs Population Scatter ──
+    new Chart(document.getElementById("chart4"), {
+        type: "scatter",
+        data: {
+            datasets: [{
+                data: c.scatter.map((d) => ({ x: d["Area (sq km)"], y: d["Population (Est.)"] })),
+                backgroundColor: PALETTE_ALPHA[1],
+                borderColor: PALETTE[1],
+                borderWidth: 1.5,
+                pointRadius: 5,
+                pointHoverRadius: 8,
+            }],
+        },
+        options: {
+            ...BASE_OPTS,
+            scales: {
+                x: { ...BASE_OPTS.scales.x, title: { display: true, text: "Area (sq km)", font: { family: "Inter", size: 12, weight: "600" }, color: "#64748b" }, ticks: { ...BASE_OPTS.scales.x.ticks, ...axisFmt() } },
+                y: { ...BASE_OPTS.scales.y, title: { display: true, text: "Population", font: { family: "Inter", size: 12, weight: "600" }, color: "#64748b" }, ticks: { ...BASE_OPTS.scales.y.ticks, ...axisFmt() } },
+            },
+            plugins: {
+                ...BASE_OPTS.plugins,
+                tooltip: {
+                    ...BASE_OPTS.plugins.tooltip,
+                    callbacks: {
+                        title: (items) => {
+                            const idx = items[0].dataIndex;
+                            return c.scatter[idx]?.City || "";
+                        },
+                        label: (ctx) => ` Area: ${fmt(ctx.parsed.x)}  Pop: ${fmt(ctx.parsed.y)}`,
+                    },
+                },
+            },
+        },
+    });
+
+    // ── 5. Population Histogram ──
+    new Chart(document.getElementById("chart5"), {
+        type: "bar",
+        data: {
+            labels: c.pop_histogram.map((d) => d.bin),
+            datasets: [{
+                data: c.pop_histogram.map((d) => d.count),
+                backgroundColor: PALETTE[2] + "99",
+                borderColor: PALETTE[2],
+                borderWidth: 1.5,
+                borderRadius: 4,
+            }],
+        },
+        options: {
+            ...BASE_OPTS,
+            scales: {
+                ...BASE_OPTS.scales,
+                y: { ...BASE_OPTS.scales.y, beginAtZero: true, title: { display: true, text: "Frequency", font: { family: "Inter", size: 11, weight: "600" }, color: "#64748b" }, ticks: { ...BASE_OPTS.scales.y.ticks, stepSize: 1 } },
+                x: { ...BASE_OPTS.scales.x, ticks: { ...BASE_OPTS.scales.x.ticks, maxRotation: 45, font: { size: 9 } } },
+            },
+        },
+    });
+
+    // ── 6. Density Leaders Bar ──
+    new Chart(document.getElementById("chart6"), {
+        type: "bar",
+        data: {
+            labels: c.density_leaders.map((d) => d.City),
+            datasets: [{
+                data: c.density_leaders.map((d) => d["Density (pop/sq km)"]),
+                backgroundColor: PALETTE[5],
+                borderRadius: 6,
+                borderSkipped: false,
+            }],
+        },
+        options: {
+            ...BASE_OPTS,
+            scales: {
+                ...BASE_OPTS.scales,
+                y: { ...BASE_OPTS.scales.y, beginAtZero: true, ticks: { ...BASE_OPTS.scales.y.ticks, ...axisFmt() } },
+                x: { ...BASE_OPTS.scales.x, ticks: { ...BASE_OPTS.scales.x.ticks, maxRotation: 40, font: { size: 10 } } },
+            },
+        },
+    });
+
+    // ── 7. Area Histogram ──
+    new Chart(document.getElementById("chart7"), {
+        type: "bar",
+        data: {
+            labels: c.area_histogram.map((d) => d.bin),
+            datasets: [{
+                data: c.area_histogram.map((d) => d.count),
+                backgroundColor: PALETTE[8] + "99",
+                borderColor: PALETTE[8],
+                borderWidth: 1.5,
+                borderRadius: 4,
+            }],
+        },
+        options: {
+            ...BASE_OPTS,
+            scales: {
+                ...BASE_OPTS.scales,
+                y: { ...BASE_OPTS.scales.y, beginAtZero: true, title: { display: true, text: "Frequency", font: { family: "Inter", size: 11, weight: "600" }, color: "#64748b" }, ticks: { ...BASE_OPTS.scales.y.ticks, stepSize: 1 } },
+                x: { ...BASE_OPTS.scales.x, ticks: { ...BASE_OPTS.scales.x.ticks, maxRotation: 45, font: { size: 9 } } },
+            },
+        },
+    });
+
+    // ── 8. Population vs Density Scatter ──
+    new Chart(document.getElementById("chart8"), {
+        type: "scatter",
+        data: {
+            datasets: [{
+                data: c.pop_vs_density.map((d) => ({
+                    x: d["Population (Est.)"],
+                    y: d["Density (pop/sq km)"],
+                })),
+                backgroundColor: PALETTE_ALPHA[9],
+                borderColor: PALETTE[9],
+                borderWidth: 1.5,
+                pointRadius: 6,
+                pointHoverRadius: 9,
+            }],
+        },
+        options: {
+            ...BASE_OPTS,
+            scales: {
+                x: { ...BASE_OPTS.scales.x, title: { display: true, text: "Population", font: { family: "Inter", size: 12, weight: "600" }, color: "#64748b" }, ticks: { ...BASE_OPTS.scales.x.ticks, ...axisFmt() } },
+                y: { ...BASE_OPTS.scales.y, title: { display: true, text: "Density (pop/sq km)", font: { family: "Inter", size: 12, weight: "600" }, color: "#64748b" }, ticks: { ...BASE_OPTS.scales.y.ticks, ...axisFmt() } },
+            },
+            plugins: {
+                ...BASE_OPTS.plugins,
+                tooltip: {
+                    ...BASE_OPTS.plugins.tooltip,
+                    callbacks: {
+                        title: (items) => {
+                            const idx = items[0].dataIndex;
+                            return c.pop_vs_density[idx]?.City || "";
+                        },
+                        label: (ctx) => ` Pop: ${fmt(ctx.parsed.x)}  Density: ${fmt(ctx.parsed.y)}/km²`,
+                    },
+                },
+            },
+        },
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PREDICTIONS PAGE
+// ═══════════════════════════════════════════════════════════════
 async function predictPopulation() {
-    const area = document.getElementById('areaInput').value;
-    const resBox = document.getElementById('predictionResult');
+    const input = document.getElementById("areaInput");
+    const box = document.getElementById("predictionResult");
+    const area = parseFloat(input.value);
 
-    if (!validateInput(area, resBox)) return;
+    if (!area || area <= 0) {
+        input.focus();
+        return;
+    }
 
-    resBox.textContent = "Connecting to ML Engine...";
-    resBox.className = "result-card"; // reset style
+    box.classList.remove("hidden");
+    box.innerHTML = `<span class="loading-pulse"></span> Running regression model...`;
 
     try {
-        const response = await fetch(`${API_BASE}/predict/population?area=${area}`);
-        if (!response.ok) throw new Error("Server error");
-
-        const data = await response.json();
-        const pred = formatNumber(data.predicted_population);
-
-        resBox.innerHTML = `<strong>Estimated Population:</strong><br><span style="font-size:24px; color:#007aff;">~${pred}</span>`;
-        resBox.className = "result-card";
+        const res = await fetch(`${API}/predict/population?area=${area}`);
+        if (!res.ok) throw new Error("Server error");
+        const data = await res.json();
+        box.innerHTML = `
+            <span class="section-label">Regression Output</span>
+            <div class="result-value">${fmt(data.result)}</div>
+            <div class="result-unit">${data.unit} for ${fmt(data.area)} km² area</div>
+        `;
     } catch (e) {
-        resBox.textContent = "Prediction failed. Check backend connection.";
-        resBox.className = "result-card error";
+        box.innerHTML = `<div style="color:var(--danger);font-weight:600;">Connection failed — is the backend running?</div>`;
     }
 }
 
 async function predictSize() {
-    const area = document.getElementById('areaInput').value;
-    const resBox = document.getElementById('predictionResult');
+    const input = document.getElementById("areaInput");
+    const box = document.getElementById("predictionResult");
+    const area = parseFloat(input.value);
 
-    if (!validateInput(area, resBox)) return;
+    if (!area || area <= 0) {
+        input.focus();
+        return;
+    }
 
-    resBox.textContent = "Connecting to ML Engine...";
-    resBox.className = "result-card"; // reset style
+    box.classList.remove("hidden");
+    box.innerHTML = `<span class="loading-pulse"></span> Running classifier...`;
 
     try {
-        const response = await fetch(`${API_BASE}/predict/size?area=${area}`);
-        if (!response.ok) throw new Error("Server error");
-
-        const data = await response.json();
-        const sizeCat = data.predicted_size_category;
-
-        resBox.innerHTML = `<strong>Predicted Classification:</strong><br><span style="font-size:24px; color:#5856d6;">${sizeCat}</span>`;
-        resBox.className = "result-card";
+        const res = await fetch(`${API}/predict/size?area=${area}`);
+        if (!res.ok) throw new Error("Server error");
+        const data = await res.json();
+        const color = data.result === "Mega City" ? "var(--danger)"
+            : data.result === "Large City" ? "var(--warning)" : "var(--success)";
+        box.innerHTML = `
+            <span class="section-label">Classification Output</span>
+            <div class="result-value" style="color:${color}">${data.result}</div>
+            <div class="result-unit">${data.unit} for ${fmt(data.area)} km² area</div>
+        `;
     } catch (e) {
-        resBox.textContent = "Prediction failed. Check backend connection.";
-        resBox.className = "result-card error";
+        box.innerHTML = `<div style="color:var(--danger);font-weight:600;">Connection failed — is the backend running?</div>`;
     }
 }
+
+// Allow Enter key to trigger population prediction
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && document.getElementById("areaInput") === document.activeElement) {
+        predictPopulation();
+    }
+});

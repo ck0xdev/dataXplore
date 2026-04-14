@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Deep Dive | DataXplore</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-wrapper">
+        <header>
+            <a href="/" class="brand">Data<span>Xplore</span></a>
+            <nav>
+                <a href="/">Overview</a>
+                <a href="/analytics.html" class="active">Analytics</a>
+                <a href="/predictions.html">Predictions</a>
+            </nav>
+        </header>
+
+        <main>
+            <section class="page-header">
+                <span class="section-label">Comprehensive Urban Data Analysis</span>
+                <h2>Exploratory Visualization Suite</h2>
+                <p class="text-muted">
+                    Eight analytically-driven charts — each paired with the exact data pipeline code
+                    used to filter, transform, and aggregate the raw dataset, just like a Jupyter notebook.
+                </p>
+            </section>
+
+            <div class="charts-grid">
+
+                <!-- ═══ CHART 1: Top 10 Population Bar ═══ -->
+                <div class="card chart-card wide">
+                    <div class="chart-header">
+                        <div>
+                            <h4>Top 10 Most Populous Cities</h4>
+                            <p class="card-subtitle">Absolute population volume — the upper tail of global urban distribution</p>
+                        </div>
+                        <span class="chart-badge">Bar</span>
+                    </div>
+                    <div class="chart-wrapper chart-lg"><canvas id="chart1"></canvas></div>
+                    <div class="notebook-cell">
+                        <div class="cell-toolbar">
+                            <span class="cell-icon">▶</span>
+                            <span class="cell-lang">Python — Pandas</span>
+                        </div>
+                        <pre><code># ── Step 1: Load raw CSV ──
+df = pd.read_csv("Top 100 Worlds Largest Cities.csv")
+
+# ── Step 2: Clean numeric column ──
+df['Population (Est.)'] = (
+    df['Population (Est.)']
+    .astype(str)
+    .str.replace(',', '', regex=False)
+    .astype(float)
+)
+
+# ── Step 3: Sort descending, slice top 10 ──
+top_10 = df.nlargest(10, 'Population (Est.)')
+
+# ── Step 4: Extract chart-ready arrays ──
+labels = top_10['City'].values
+values = top_10['Population (Est.)'].values
+
+print(f"Range: {values.min()/1e6:.1f}M → {values.max()/1e6:.1f}M")
+print(f"Top city share: {values[0]/values.sum()*100:.1f}%")</code></pre>
+                    </div>
+                    <div class="insight-box">
+                        <strong>Insight:</strong> Asian megacities overwhelmingly dominate the population leaderboard.
+                        The top city alone often accounts for 10%+ of the combined top-10 population,
+                        illustrating extreme concentration in a handful of urban centres.
+                    </div>
+                </div>
+
+                <!-- ═══ CHART 2: Country Distribution ═══ -->
+                <div class="card chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h4>Country Frequency</h4>
+                            <p class="card-subtitle">Which nations have the most megacities</p>
+                        </div>
+                        <span class="chart-badge">H-Bar</span>
+                    </div>
+                    <div class="chart-wrapper"><canvas id="chart2"></canvas></div>
+                    <div class="notebook-cell">
+                        <div class="cell-toolbar">
+                            <span class="cell-icon">▶</span>
+                            <span class="cell-lang">Python — Pandas</span>
+                        </div>
+                        <pre><code># ── Count occurrences per country ──
+counts = df['Country'].value_counts()
+
+# ── Keep only top 10, sort ascending for horizontal bar ──
+top_10 = counts.head(10).sort_values(ascending=True)
+
+labels = top_10.index.tolist()
+values = top_10.values.tolist()
+
+# ── Calculate concentration metric ──
+total = df.shape[0]
+top_2_share = top_10.tail(2).sum() / total * 100
+print(f"Top-2 countries hold {top_2_share:.0f}% of all cities")</code></pre>
+                    </div>
+                    <div class="insight-box">
+                        <strong>Insight:</strong> China and India together typically represent 35-45% of the list,
+                        reflecting their massive domestic urbanisation drives and billion-plus population bases.
+                    </div>
+                </div>
+
+                <!-- ═══ CHART 3: Size Category Doughnut ═══ -->
+                <div class="card chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h4>City Size Tiers</h4>
+                            <p class="card-subtitle">Quantile-based urban hierarchy classification</p>
+                        </div>
+                        <span class="chart-badge">Doughnut</span>
+                    </div>
+                    <div class="chart-wrapper"><canvas id="chart3"></canvas></div>
+                    <div class="notebook-cell">
+                        <div class="cell-toolbar">
+                            <span class="cell-icon">▶</span>
+                            <span class="cell-lang">Python — Logic</span>
+                        </div>
+                        <pre><code># ── Define thresholds from actual data ──
+q75 = df['Population (Est.)'].quantile(0.75)
+q25 = df['Population (Est.)'].quantile(0.25)
+print(f"Mega threshold: ≥ {q75/1e6:.1f}M")
+print(f"Large threshold: ≥ {q25/1e6:.1f}M")
+
+# ── Classify ──
+def classify(pop):
+    if pop >= q75: return 'Mega City'
+    if pop >= q25: return 'Large City'
+    return 'Medium City'
+
+df['Size Category'] = df['Population (Est.)'].apply(classify)
+
+# ── Aggregate ──
+size_dist = df['Size Category'].value_counts().to_dict()</code></pre>
+                    </div>
+                    <div class="insight-box">
+                        <strong>Insight:</strong> Using quantile-based thresholds (not arbitrary cut-offs)
+                        ensures balanced classes: 25% Mega, 50% Large, 25% Medium.
+                        This avoids the common pitfall of skewed class distributions.
+                    </div>
+                </div>
+
+                <!-- ═══ CHART 4: Area vs Population Scatter ═══ -->
+                <div class="card chart-card wide">
+                    <div class="chart-header">
+                        <div>
+                            <h4>Area vs Population Correlation</h4>
+                            <p class="card-subtitle">Bivariate analysis — does bigger land area mean more people?</p>
+                        </div>
+                        <span class="chart-badge">Scatter</span>
+                    </div>
+                    <div class="chart-wrapper chart-lg"><canvas id="chart4"></canvas></div>
+                    <div class="notebook-cell">
+                        <div class="cell-toolbar">
+                            <span class="cell-icon">▶</span>
+                            <span class="cell-lang">Python — NumPy / SciPy</span>
+                        </div>
+                        <pre><code># ── Extract both variables ──
+X = df['Area (sq km)'].values
+Y = df['Population (Est.)'].values
+
+# ── Pearson correlation ──
+from scipy.stats import pearsonr
+r, p_val = pearsonr(X, Y)
+print(f"Pearson r = {r:.4f}  (p = {p_val:.2e})")
+
+# ── Build scatter payload ──
+scatter = [
+    {'x': float(x), 'y': float(y)}
+    for x, y in zip(X, Y)
+]
+
+# ── Interpretation ──
+if abs(r) < 0.3:
+    print("→ Weak correlation: area alone is a poor predictor")</code></pre>
+                    </div>
+                    <div class="insight-box">
+                        <strong>Insight:</strong> The Pearson correlation is typically weak (r ≈ 0.2–0.4),
+                        proving that land area alone cannot explain population. Dense cities like Dhaka
+                        achieve massive populations on compact footprints, while sprawling cities like
+                        Kinshasa occupy vast areas with lower density.
+                    </div>
+                </div>
+
+                <!-- ═══ CHART 5: Population Distribution Histogram ═══ -->
+                <div class="card chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h4>Population Distribution</h4>
+                            <p class="card-subtitle">Frequency across equal-width bins — shape of the distribution</p>
+                        </div>
+                        <span class="chart-badge">Histogram</span>
+                    </div>
+                    <div class="chart-wrapper"><canvas id="chart5"></canvas></div>
+                    <div class="notebook-cell">
+                        <div class="cell-toolbar">
+                            <span class="cell-icon">▶</span>
+                            <span class="cell-lang">Python — NumPy</span>
+                        </div>
+                        <pre><code># ── Raw population array ──
+pop = df['Population (Est.)'].values
+
+# ── Create 10 equal-width bins ──
+bins = np.linspace(pop.min(), pop.max(), 11)
+counts, edges = np.histogram(pop, bins=bins)
+
+# ── Format bin labels ──
+labels = [
+    f"{edges[i]/1e6:.1f}M–{edges[i+1]/1e6:.1f}M"
+    for i in range(len(counts))
+]
+
+# ── Identify modal bin ──
+peak = np.argmax(counts)
+print(f"Peak bin: {labels[peak]} ({counts[peak]} cities)")</code></pre>
+                    </div>
+                    <div class="insight-box">
+                        <strong>Insight:</strong> The right-skewed shape is characteristic of a log-normal
+                        distribution — a small number of extreme megacities pull the tail right,
+                        while the bulk of cities cluster in lower population ranges.
+                    </div>
+                </div>
+
+                <!-- ═══ CHART 6: Density Leaders Bar ═══ -->
+                <div class="card chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h4>Top 10 Density Leaders</h4>
+                            <p class="card-subtitle">People per sq km — the most crowded urban footprints</p>
+                        </div>
+                        <span class="chart-badge">Bar</span>
+                    </div>
+                    <div class="chart-wrapper"><canvas id="chart6"></canvas></div>
+                    <div class="notebook-cell">
+                        <div class="cell-toolbar">
+                            <span class="cell-icon">▶</span>
+                            <span class="cell-lang">Python — Pandas</span>
+                        </div>
+                        <pre><code># ── Compute derived feature ──
+df['Density (pop/sq km)'] = (
+    df['Population (Est.)'] / df['Area (sq km)']
+)
+
+# ── Sort by density, take top 10 ──
+leaders = df.nlargest(10, 'Density (pop/sq km)')
+
+# ── Select output columns ──
+result = leaders[[
+    'City', 'Country',
+    'Density (pop/sq km)',
+    'Population (Est.)',
+    'Area (sq km)'
+]]
+
+print(result.to_string(index=False))</code></pre>
+                    </div>
+                    <div class="insight-box">
+                        <strong>Insight:</strong> Cities like Dhaka, Mumbai, and Lagos regularly exceed
+                        10,000 people/sq km — orders of magnitude above the global urban average.
+                        These density extremes present unique infrastructure and public-health challenges.
+                    </div>
+                </div>
+
+                <!-- ═══ CHART 7: Area Distribution Histogram ═══ -->
+                <div class="card chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h4>Area Distribution</h4>
+                            <p class="card-subtitle">Land-footprint frequency — what size do most megacities occupy?</p>
+                        </div>
+                        <span class="chart-badge">Histogram</span>
+                    </div>
+                    <div class="chart-wrapper"><canvas id="chart7"></canvas></div>
+                    <div class="notebook-cell">
+                        <div class="cell-toolbar">
+                            <span class="cell-icon">▶</span>
+                            <span class="cell-lang">Python — NumPy</span>
+                        </div>
+                        <pre><code># ── Raw area array ──
+areas = df['Area (sq km)'].values
+
+# ── 8 equal-width bins ──
+bins = np.linspace(areas.min(), areas.max(), 9)
+counts, edges = np.histogram(areas, bins=bins)
+
+# ── Format labels ──
+labels = [
+    f"{edges[i]:.0f}–{edges[i+1]:.0f}"
+    for i in range(len(counts))
+]
+
+# ── Modal range ──
+peak = np.argmax(counts)
+print(f"Most common: {labels[peak]} sq km")</code></pre>
+                    </div>
+                    <div class="insight-box">
+                        <strong>Insight:</strong> The majority of the world's largest cities occupy
+                        500–3,000 sq km. Very few expand beyond 5,000 sq km due to geographic
+                        boundaries (oceans, mountains) and administrative limits.
+                    </div>
+                </div>
+
+                <!-- ═══ CHART 8: Population vs Density Scatter ═══ -->
+                <div class="card chart-card wide">
+                    <div class="chart-header">
+                        <div>
+                            <h4>Population vs Density</h4>
+                            <p class="card-subtitle">Does being more populous mean being more crowded? (Top 30 cities)</p>
+                        </div>
+                        <span class="chart-badge">Scatter</span>
+                    </div>
+                    <div class="chart-wrapper chart-lg"><canvas id="chart8"></canvas></div>
+                    <div class="notebook-cell">
+                        <div class="cell-toolbar">
+                            <span class="cell-icon">▶</span>
+                            <span class="cell-lang">Python — Pandas</span>
+                        </div>
+                        <pre><code># ── Filter top 30 by population ──
+top_30 = df.nlargest(30, 'Population (Est.)')
+
+# ── Extract axes ──
+x = top_30['Population (Est.)'].values
+y = top_30['Density (pop/sq km)'].values
+cities = top_30['City'].values
+
+# ── Check for linear relationship ──
+r, _ = pearsonr(x, y)
+print(f"Pop vs Density r = {r:.4f}")
+
+# ── Identify outliers ──
+mean_d = y.mean()
+std_d = y.std()
+outliers = top_30[y > mean_d + 2*std_d]
+print(f"Density outliers: {outliers['City'].tolist()}")</code></pre>
+                    </div>
+                    <div class="insight-box">
+                        <strong>Insight:</strong> No strong linear relationship exists between total
+                        population and density. Some of the most populous cities (e.g., Tokyo with
+                        extended metro boundaries) show moderate density, while smaller cities like
+                        Manila achieve extreme density in compact areas. This non-linearity is exactly
+                        what our Gradient Boosting model captures through engineered features.
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <footer class="site-footer">
+            <p>DataXplore v2.1 — All charts render from live API data, zero hardcoded values</p>
+        </footer>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
